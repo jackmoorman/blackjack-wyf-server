@@ -3,11 +3,20 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 import cors from 'cors';
 
+// route imports
+import authRouter from './routes/authRouter.js';
+
 const app: Express = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
+
+app.use('/api/auth', authRouter);
+
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({ message: 'Hello From Root Route!' });
+});
 
 app.use('*', (req: Request, res: Response, next: NextFunction) => {
   const err = {
