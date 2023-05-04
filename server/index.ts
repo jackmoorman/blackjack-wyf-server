@@ -5,6 +5,7 @@ import cors from 'cors';
 
 // route imports
 import authRouter from './routes/authRouter.js';
+import apiRouter from './routes/apiRouter.js';
 
 const app: Express = express();
 app.use(cors());
@@ -12,7 +13,8 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3002;
 
-app.use('/api/auth', authRouter);
+app.use('/auth', authRouter);
+app.use('/api', apiRouter);
 
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({ message: 'Hello From Root Route!' });
