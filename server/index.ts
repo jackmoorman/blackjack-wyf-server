@@ -1,23 +1,21 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import * as dotenv from 'dotenv';
-dotenv.config();
 import cors from 'cors';
 import passport from 'passport';
-import DiscordStrategy from 'passport-discord';
 import session from 'express-session';
-
-// route imports
 import authRouter from './routes/authRouter.js';
 import apiRouter from './routes/apiRouter.js';
 
+dotenv.config();
+
+const PORT = process.env.PORT || 3000;
+
 const app: Express = express();
-app.use(cors());
 app.use(express.json());
-app.use(passport.initialize());
-app.use(passport.session());
+app.use(cors());
 app.use(
   session({
-    secret: process.env.SESSION_SECRET as string,
+    secret: process.env.SESSION_SECRET!,
     resave: true,
     saveUninitialized: true,
     cookie: {
@@ -28,31 +26,8 @@ app.use(
   })
 );
 
-// const discordScopes = ['identify', 'email', 'guilds', 'guilds.join'];
-
-// passport.serializeUser((user, done) => {
-//   return done(null, user);
-// });
-
-// passport.deserializeUser((user, done) => {
-//   return done(null);
-// });
-
-// passport.use(
-//   new DiscordStrategy(
-//     {
-//       clientID: process.env.DISCORD_CLIENT_ID as string,
-//       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
-//       callbackURL: '/auth/discord/callback',
-//       scope: discordScopes,
-//     },
-//     function (accessToken, refreshToken, profile, cb) {
-//       return cb(null, profile);
-//     }
-//   )
-// );
-
-const PORT = process.env.PORT || 3002;
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use('/auth', authRouter);
 app.use('/api', apiRouter);
