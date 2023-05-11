@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import cors from 'cors';
 import passport from 'passport';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import authRouter from './routes/authRouter.js';
 import apiRouter from './routes/apiRouter.js';
 import { Strategy as DiscordStrategy } from 'passport-discord';
@@ -17,15 +18,15 @@ const clientURL: string = process.env.CLIENT_URL!;
 const app: Express = express();
 app.use(express.json());
 app.use(cors());
+app.use(cookieParser());
 app.use(
   session({
-    secret: process.env.SESSION_SECRET!,
+    secret: 'secret',
     resave: false,
     saveUninitialized: true,
     cookie: {
-      sameSite: 'none',
-      secure: true,
-      maxAge: 1000 * 60 * 60 * 24, // One day
+      maxAge: 1000 * 60 * 60 * 24, // 24 hours
+      sameSite: false,
     },
   })
 );
@@ -35,22 +36,26 @@ app.use(passport.session());
 
 passport.serializeUser((user, done) => {
   console.log('Serializing User: ', user);
-  return done(null, user);
+  done(null, user);
+  // removed return
 });
 
-passport.deserializeUser(async (id: string, done) => {
-  console.log('Deserializing User: ', id);
-  try {
-    const user = await prisma.user.findUnique({
+passport.deserializeUser(async (authUser: any, done) => {
+  console.log('Deserializing User: ', authUser);
+  const user = await prisma.user
+    .findUnique({
       where: {
-        id: id,
+        id: authUser.id,
       },
+    })
+    .catch((err) => {
+      console.log('Error retrieving user: ', err);
+      return done(err, null);
     });
-    console.log('Found user: ', user);
-    return done(null, user);
-  } catch (err) {
-    return done(err);
-  }
+
+  if (!user) return done(null, null);
+  console.log('Found user: ', user);
+  return done(null, user);
 });
 
 passport.use(
@@ -83,13 +88,29 @@ app.get(
     session: true,
   }),
   (req: Request, res: Response) => {
+    console.log('REQ.USER: ', req.user);
     res.redirect(`${clientURL}`);
   }
 );
 
-app.get('/auth/logout', (req, res) => {
+app.get('/auth/logout', (req: Request, res: Response, next: NextFunction) => {
   console.log('LOGOUT: ', req.user);
-  console.log(req.session.destroy);
+  console.log('Session: ', req.session);
+  console.log(req.isAuthenticated());
+  if (req.isAuthenticated()) {
+    req.logout((err) => {
+      if (err)
+        return res
+          .status(300)
+          .json({ success: false, message: 'Error logging out' });
+
+      return res
+        .status(200)
+        .json({ success: true, message: 'Successfulle logged out' });
+    });
+  } else {
+    return res.status(300).json({ success: false, message: 'Not logged in' });
+  }
 });
 
 app.get('/', (req: Request, res: Response) => {
