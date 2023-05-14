@@ -17,7 +17,17 @@ const clientURL: string = process.env.CLIENT_URL!;
 
 const app: Express = express();
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: '*',
+    credentials: true,
+  })
+);
+// app.use((req: Request, res: Response, next: NextFunction) => {
+//   res.setHeader('Cache-Control', 'no-store');
+//   // res.setHeader('Pragma', 'no-cache');
+//   res.setHeader('Expires', '0');
+// });
 app.use(cookieParser());
 app.use(
   session({
@@ -34,7 +44,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.serializeUser((user, done) => {
+passport.serializeUser((user: any, done) => {
   console.log('Serializing User: ', user);
   done(null, user);
   // removed return
@@ -69,7 +79,9 @@ passport.use(
     async (accessToken, refreshToken, profile, cb) => {
       console.log('Discord Strategy callback reached: ', profile);
       try {
+        console.log('inside try');
         const user = await authController.findOrCreate(profile);
+        console.log('USER: ', user);
         return cb(null, user);
       } catch (err: any) {
         return cb(err);
@@ -93,11 +105,20 @@ app.get(
   }
 );
 
+app.get('/auth/verify', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  if (req.user) res.status(200).json({ isAuthenticated: true, user: req.user });
+  else res.status(200).json({ isAuthenticated: false, user: null });
+});
+
 app.get('/auth/logout', (req: Request, res: Response, next: NextFunction) => {
-  console.log('LOGOUT: ', req.user);
-  console.log('Session: ', req.session);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   console.log(req.isAuthenticated());
-  if (req.isAuthenticated()) {
+  if (req.user) {
     req.logout((err) => {
       if (err)
         return res
@@ -106,10 +127,13 @@ app.get('/auth/logout', (req: Request, res: Response, next: NextFunction) => {
 
       return res
         .status(200)
-        .json({ success: true, message: 'Successfulle logged out' });
+        .json({ success: true, message: 'Successfully logged out' });
     });
   } else {
-    return res.status(300).json({ success: false, message: 'Not logged in' });
+    console.log('testing');
+    return res
+      .status(300)
+      .json({ success: false, message: 'Not logged in homie' });
   }
 });
 
