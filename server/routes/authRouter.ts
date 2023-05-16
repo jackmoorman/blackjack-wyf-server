@@ -1,9 +1,8 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import passport from 'passport';
-// import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as DiscordStrategy } from 'passport-discord';
+import { prisma } from '../../lib/prisma.js';
 import authController from '../controllers/authController.js';
-// import session from 'express-session';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
@@ -12,27 +11,27 @@ const authRouter = express.Router();
 
 passport.serializeUser((user, done) => {
   console.log('Serializing User: ', user);
+  done(null, user);
+});
+
+passport.deserializeUser(async (authUser: any, done) => {
+  console.log('Deserializing User: ', authUser);
+
+  const user = await prisma.user
+    .findUnique({
+      where: {
+        id: authUser.id,
+      },
+    })
+    .catch((err) => {
+      console.log('Error retrieving user while deserializing: ', err);
+      return done(err, null);
+    });
+
+  if (!user) return done(null, null);
+  console.log('Found user: ', user);
   return done(null, user);
 });
-
-passport.deserializeUser((id: string, done) => {
-  console.log('Deserializing User', id);
-  return done(null, id);
-});
-
-// passport.use(
-//   new GoogleStrategy(
-//     {
-//       clientID: process.env.GOOGLE_CLIENT_ID!,
-//       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-//       callbackURL: '/auth/google/callback',
-//     },
-//     function (_, __, profile, cb) {
-//       console.log('CallbackURL reached', profile);
-//       return cb(null, profile);
-//     }
-//   )
-// );
 
 passport.use(
   new DiscordStrategy(
@@ -46,6 +45,7 @@ passport.use(
       console.log('Discord Strategy callback reached: ', profile);
       try {
         const user = await authController.findOrCreate(profile);
+        console.log('USER: ', user);
         return cb(null, user);
       } catch (err: any) {
         return cb(err);
@@ -54,43 +54,47 @@ passport.use(
   )
 );
 
-// authRouter.get(
-//   '/google',
-//   passport.authenticate('google', { scope: ['profile'] })
-// );
-
-// authRouter.get(
-//   '/google/callback',
-//   passport.authenticate('google', {
-//     failureRedirect: `${clientURL}/login`,
-//     session: true,
-//   }),
-//   function (req, res) {
-//     console.log('Google callback reached');
-//     // res.status(200).json({ message: 'Successfully logged in using Google' });
-//     res.redirect(`${clientURL}`);
-//   }
-// );
-
 authRouter.get('/discord', passport.authenticate('discord'));
-
 authRouter.get(
   '/discord/callback',
-  passport.authenticate('discord', { failureRedirect: '/login' }),
+  passport.authenticate('discord', {
+    session: true,
+    failureRedirect: `${clientURL}/login`,
+  }),
   (req: Request, res: Response) => {
-    console.log('Discord callback reached');
+    console.log('REQ.USER: ', req.user);
     res.redirect(`${clientURL}`);
   }
 );
 
+authRouter.get('/verify', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  if (req.user) res.status(200).json({ isAuthenticated: true, user: req.user });
+  else res.status(200).json({ isAuthenticated: false, user: null });
+});
+
 authRouter.get('/logout', (req: Request, res: Response) => {
-  req.logout((err) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send(err.message);
-    }
-    res.redirect(`${clientURL}`);
-  });
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  if (req.user) {
+    req.logout((err) => {
+      if (err)
+        return res
+          .status(300)
+          .json({ success: false, message: `Error loggin out: ${err}` });
+
+      return res
+        .status(200)
+        .json({ success: true, message: 'Successfully logged out.' });
+    });
+  } else {
+    return res
+      .status(300)
+      .json({ success: false, message: 'User is not logged in.' });
+  }
 });
 
 export default authRouter;
