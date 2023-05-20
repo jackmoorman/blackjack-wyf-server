@@ -17,19 +17,9 @@ model User {
   username   String
   chips      Int        @default(1000)
   Blackjack  Blackjack?
-  War        War?
 }
 
 model Blackjack {
-  id         String @id @default(cuid())
-  user       User   @relation(fields: [user_id], references: [id])
-  user_id    String @unique
-  games_won  Int    @default(0)
-  games_lost Int    @default(0)
-  earnings   Int    @default(0)
-}
-
-model War {
   id         String @id @default(cuid())
   user       User   @relation(fields: [user_id], references: [id])
   user_id    String @unique

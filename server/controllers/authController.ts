@@ -18,9 +18,6 @@ const authController = {
             Blackjack: {
               create: {},
             },
-            War: {
-              create: {},
-            },
           },
         });
         return newUser;
